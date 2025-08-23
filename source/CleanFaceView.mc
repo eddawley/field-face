@@ -77,7 +77,7 @@ class CleanFaceView extends WatchUi.WatchFace {
     private function calculateLayout(dc as Dc, width as Number, height as Number, timeFont) as Dictionary {
         // Calculate time dimensions and position
         var timeWidth = dc.getTextWidthInPixels("00:00", timeFont);
-        var timeX = width / 2;
+        var timeX = width / 2 - 2;
         var timeY = height / 2 - 22;
         
         // Calculate all positions relative to time
@@ -97,9 +97,9 @@ class CleanFaceView extends WatchUi.WatchFace {
             "batteryY" => 20,
             "batteryTextY" => 15,
             
-            // Seconds centered in right subscreen (100px to edge)
-            "secondsX" => 100 + (width - 100) / 2 + 5,
-            "secondsY" => 20,
+            // Seconds right after time with minimal spacing, top aligned
+            "secondsX" => timeX + timeWidth / 2 + 1,
+            "secondsY" => timeY + 10,
             
             // Steps at bottom center
             "stepsX" => width / 2,
@@ -202,14 +202,14 @@ class CleanFaceView extends WatchUi.WatchFace {
         );
         
         _isAwake = true;
-        // Seconds centered in upper right subscreen (only when awake)
+        // Seconds right after time with minimal spacing (only when awake)
         if (_isAwake) {
             dc.drawText(
                 layout["secondsX"],
                 layout["secondsY"],
-                Graphics.FONT_SMALL,
+                Graphics.FONT_XTINY,
                 secondsString,
-                Graphics.TEXT_JUSTIFY_CENTER
+                Graphics.TEXT_JUSTIFY_LEFT
             );
         }
     }
