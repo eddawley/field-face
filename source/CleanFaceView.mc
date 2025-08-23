@@ -16,6 +16,11 @@ class CleanFaceView extends WatchUi.WatchFace {
     private var _dayString = "";
     private var _batteryIcon = null;
     private var _stepsIcon = null;
+    private var _largeTimeFont = null;
+    private var _cachedLayout = null;
+    private var _lastWidth = 0;
+    private var _lastHeight = 0;
+    private var _lastTimeFont = null;
     private var _lastBatteryMinute = -1;
     private var _lastStepsMinute = -1;
     private var _lastDateDay = -1;
@@ -58,17 +63,54 @@ class CleanFaceView extends WatchUi.WatchFace {
         
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         
-        // Update cached values based on time intervals
-        updateCachedValues(clockTime);
+        // Update cached values and layout based on conditions
+        var timeFont = _largeTimeFont != null ? _largeTimeFont : Graphics.FONT_NUMBER_THAI_HOT;
+        updateCachedValues(clockTime, dc, width, height, timeFont);
         
-        // Draw all display elements
-        drawBattery(dc, clockTime);
-        drawDate(dc, width);
-        drawTime(dc, width, height, clockTime);
-        drawSteps(dc, width, height, clockTime);
+        // Draw all display elements using cached layout
+        drawBattery(dc, _cachedLayout);
+        drawDate(dc, _cachedLayout);
+        drawTime(dc, _cachedLayout, clockTime);
+        drawSteps(dc, _cachedLayout);
     }
     
-    private function updateCachedValues(clockTime as ClockTime) as Void {
+    private function calculateLayout(dc as Dc, width as Number, height as Number, timeFont) as Dictionary {
+        // Calculate time dimensions and position
+        var timeWidth = dc.getTextWidthInPixels("00:00", timeFont);
+        var timeX = width / 2;
+        var timeY = height / 2 - 22;
+        
+        // Calculate all positions relative to time
+        var layout = {
+            // Time positioning
+            "timeX" => timeX,
+            "timeY" => timeY,
+            "timeFont" => timeFont,
+            "timeWidth" => timeWidth,
+            
+            // Date directly above time, left aligned (below battery)
+            "dateX" => timeX - timeWidth / 2,
+            "dateY" => timeY - 10,
+            
+            // Battery at top, avoiding right edge at 99px
+            "batteryMaxX" => 99,
+            "batteryY" => 20,
+            "batteryTextY" => 15,
+            
+            // Seconds centered in right subscreen (100px to edge)
+            "secondsX" => 100 + (width - 100) / 2 + 5,
+            "secondsY" => 20,
+            
+            // Steps at bottom center
+            "stepsX" => width / 2,
+            "stepsY" => height - 15,
+            "stepsTextY" => height - 20
+        };
+        
+        return layout;
+    }
+    
+    private function updateCachedValues(clockTime as ClockTime, dc as Dc, width as Number, height as Number, timeFont) as Void {
         // Update battery every 5 minutes
         if (clockTime.min != _lastBatteryMinute && clockTime.min % 5 == 0) {
             _lastBatteryMinute = clockTime.min;
@@ -86,35 +128,49 @@ class CleanFaceView extends WatchUi.WatchFace {
             _lastStepsMinute = clockTime.min;
             updateSteps();
         }
+        
+        // Update layout when screen dimensions or font changes
+        if (_cachedLayout == null || width != _lastWidth || height != _lastHeight || timeFont != _lastTimeFont) {
+            _cachedLayout = calculateLayout(dc, width, height, timeFont);
+            _lastWidth = width;
+            _lastHeight = height;
+            _lastTimeFont = timeFont;
+        }
     }
     
-    private function drawBattery(dc as Dc, clockTime as ClockTime) as Void {
+    private function drawBattery(dc as Dc, layout as Dictionary) as Void {
         // Battery at top with icon, can extend up to pixel 99
         if (_batteryIcon != null) {
             var iconWidth = 12;
             var gap = 2;
             var textWidth = dc.getTextWidthInPixels(_batteryString, Graphics.FONT_TINY);
             var totalWidth = iconWidth + gap + textWidth;
-            var maxRightEdge = 99; // Last pixel before right subscreen
-            var startX = maxRightEdge - totalWidth;
+            var startX = layout["batteryMaxX"] - totalWidth;
             
-            dc.drawBitmap(startX, 20, _batteryIcon);
-            dc.drawText(startX + iconWidth + gap, 15, Graphics.FONT_TINY, _batteryString, Graphics.TEXT_JUSTIFY_LEFT);
+            dc.drawBitmap(startX, layout["batteryY"], _batteryIcon);
+            dc.drawText(startX + iconWidth + gap, layout["batteryTextY"], Graphics.FONT_TINY, _batteryString, Graphics.TEXT_JUSTIFY_LEFT);
         } else {
-            dc.drawText(99 - dc.getTextWidthInPixels(_batteryString, Graphics.FONT_TINY), 30, Graphics.FONT_TINY, _batteryString, Graphics.TEXT_JUSTIFY_LEFT);
+            dc.drawText(layout["batteryMaxX"] - dc.getTextWidthInPixels(_batteryString, Graphics.FONT_TINY), layout["batteryTextY"], Graphics.FONT_TINY, _batteryString, Graphics.TEXT_JUSTIFY_LEFT);
         }
     }
     
-    private function drawDate(dc as Dc, width as Number) as Void {
-        // Date in top right corner (cached)
-        var rightMargin = 20;
-        var topMargin = 15;
+    private function drawDate(dc as Dc, layout as Dictionary) as Void {
+        // Date directly above time, left justified to time
+        var today = Gregorian.info(Time.now(), Time.FORMAT_MEDIUM);
+        var fullDayName = today.day_of_week;
+        var monthAbbrev = today.month.substring(0, 3);
+        var dateString = Lang.format("$1$, $2$ $3$", [fullDayName, monthAbbrev, today.day]);
         
-        dc.drawText(width - rightMargin, topMargin, Graphics.FONT_TINY, _dayOfWeekString, Graphics.TEXT_JUSTIFY_RIGHT);
-        dc.drawText(width - rightMargin, topMargin + 15, Graphics.FONT_SMALL, _dayString, Graphics.TEXT_JUSTIFY_RIGHT);
+        dc.drawText(
+            layout["dateX"],
+            layout["dateY"],
+            Graphics.FONT_XTINY,
+            dateString,
+            Graphics.TEXT_JUSTIFY_LEFT
+        );
     }
     
-    private function drawTime(dc as Dc, width as Number, height as Number, clockTime as ClockTime) as Void {
+    private function drawTime(dc as Dc, layout as Dictionary, clockTime as ClockTime) as Void {
         // Use cached 24-hour setting
         var timeString;
         if (_is24Hour) {
@@ -136,42 +192,41 @@ class CleanFaceView extends WatchUi.WatchFace {
         }
         var secondsString = clockTime.sec.format("%02d");
         
-        // Time in center
+        // Time in center with large custom font
         dc.drawText(
-            width / 2,
-            height / 2 - 15,
-            Graphics.FONT_NUMBER_THAI_HOT,
+            layout["timeX"],
+            layout["timeY"],
+            layout["timeFont"],
             timeString,
             Graphics.TEXT_JUSTIFY_CENTER
         );
         
-        // Seconds right after time (only when awake)
+        _isAwake = true;
+        // Seconds centered in upper right subscreen (only when awake)
         if (_isAwake) {
-            var timeWidth = dc.getTextWidthInPixels(timeString, Graphics.FONT_NUMBER_THAI_HOT);
             dc.drawText(
-                width / 2 + timeWidth / 2 + 5,
-                height / 2 - 10,
+                layout["secondsX"],
+                layout["secondsY"],
                 Graphics.FONT_SMALL,
                 secondsString,
-                Graphics.TEXT_JUSTIFY_LEFT
+                Graphics.TEXT_JUSTIFY_CENTER
             );
         }
     }
     
-    private function drawSteps(dc as Dc, width as Number, height as Number, clockTime as ClockTime) as Void {
+    private function drawSteps(dc as Dc, layout as Dictionary) as Void {
         // Steps at bottom with icon
         if (_stepsIcon != null) {
             var iconWidth = 12;
             var gap = 2;
             var textWidth = dc.getTextWidthInPixels(_stepsString, Graphics.FONT_TINY);
             var totalWidth = iconWidth + gap + textWidth;
-            var centerX = width / 2;
-            var startX = centerX - totalWidth / 2;
+            var startX = layout["stepsX"] - totalWidth / 2;
             
-            dc.drawBitmap(startX, height - 15, _stepsIcon);
-            dc.drawText(startX + iconWidth + gap, height - 20, Graphics.FONT_TINY, _stepsString, Graphics.TEXT_JUSTIFY_LEFT);
+            dc.drawBitmap(startX, layout["stepsY"], _stepsIcon);
+            dc.drawText(startX + iconWidth + gap, layout["stepsTextY"], Graphics.FONT_TINY, _stepsString, Graphics.TEXT_JUSTIFY_LEFT);
         } else {
-            dc.drawText(width / 2, height - 20, Graphics.FONT_TINY, _stepsString, Graphics.TEXT_JUSTIFY_CENTER);
+            dc.drawText(layout["stepsX"], layout["stepsTextY"], Graphics.FONT_TINY, _stepsString, Graphics.TEXT_JUSTIFY_CENTER);
         }
     }
 
@@ -231,6 +286,7 @@ class CleanFaceView extends WatchUi.WatchFace {
     private function loadIcons() as Void {
         _batteryIcon = WatchUi.loadResource(Rez.Drawables.BatteryIcon);
         _stepsIcon = WatchUi.loadResource(Rez.Drawables.StepsIcon);
+        _largeTimeFont = WatchUi.loadResource(Rez.Fonts.LargeTimeFont);
     }
 
 }
