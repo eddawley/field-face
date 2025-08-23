@@ -12,10 +12,12 @@ class CleanFaceView extends WatchUi.WatchFace {
     private var _is24Hour = null;
     private var _batteryString = "--";
     private var _stepsString = "--";
+    private var _heartRateString = "--";
     private var _dayOfWeekString = "";
     private var _dayString = "";
     private var _batteryIcon = null;
     private var _stepsIcon = null;
+    private var _heartRateIcon = null;
     private var _largeTimeFont = null;
     private var _cachedLayout = null;
     private var _lastWidth = 0;
@@ -24,6 +26,7 @@ class CleanFaceView extends WatchUi.WatchFace {
     private var _lastBatteryMinute = -1;
     private var _lastStepsMinute = -1;
     private var _lastDateDay = -1;
+    private var _lastHeartRateTime = 0;
     private var _initialized = false;
 
     function initialize() {
@@ -48,12 +51,13 @@ class CleanFaceView extends WatchUi.WatchFace {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
         
-        // Force initial update of battery, steps, date and icons on first render
+        // Force initial update of battery, steps, date, heart rate and icons on first render
         if (!_initialized) {
             _initialized = true;
             updateBattery();
             updateSteps();
             updateDate();
+            updateHeartRate();
             loadIcons();
         }
         
@@ -72,6 +76,7 @@ class CleanFaceView extends WatchUi.WatchFace {
         drawDate(dc, _cachedLayout);
         drawTime(dc, _cachedLayout, clockTime);
         drawSteps(dc, _cachedLayout);
+        drawHeartRate(dc, _cachedLayout);
     }
     
     private function calculateLayout(dc as Dc, width as Number, height as Number, timeFont) as Dictionary {
@@ -101,6 +106,10 @@ class CleanFaceView extends WatchUi.WatchFace {
             "secondsX" => timeX + timeWidth / 2 + 1,
             "secondsY" => timeY + 10,
             
+            // Heart rate centered in top right subscreen (100px to edge)
+            "heartRateX" => 100 + (width - 100) / 2 + 5,
+            "heartRateY" => 20,
+            
             // Steps at bottom center
             "stepsX" => width / 2,
             "stepsY" => height - 15,
@@ -127,6 +136,19 @@ class CleanFaceView extends WatchUi.WatchFace {
         if (clockTime.min != _lastStepsMinute && clockTime.min % 10 == 0) {
             _lastStepsMinute = clockTime.min;
             updateSteps();
+        }
+        
+        // Update heart rate with smart timing (only when awake)
+        if (_isAwake) {
+            var currentTime = clockTime.hour * 3600 + clockTime.min * 60 + clockTime.sec;
+            var awakeInterval = 30; // 30 seconds when awake
+            var sleepInterval = 120; // 120 seconds when sleeping
+            var interval = _isAwake ? awakeInterval : sleepInterval;
+            
+            if (currentTime - _lastHeartRateTime >= interval) {
+                _lastHeartRateTime = currentTime;
+                updateHeartRate();
+            }
         }
         
         // Update layout when screen dimensions or font changes
@@ -201,7 +223,6 @@ class CleanFaceView extends WatchUi.WatchFace {
             Graphics.TEXT_JUSTIFY_CENTER
         );
         
-        _isAwake = true;
         // Seconds right after time with minimal spacing (only when awake)
         if (_isAwake) {
             dc.drawText(
@@ -229,6 +250,24 @@ class CleanFaceView extends WatchUi.WatchFace {
             dc.drawText(layout["stepsX"], layout["stepsTextY"], Graphics.FONT_TINY, _stepsString, Graphics.TEXT_JUSTIFY_CENTER);
         }
     }
+    
+    private function drawHeartRate(dc as Dc, layout as Dictionary) as Void {
+        // Heart rate centered in top right subscreen (only when awake)
+        if (_isAwake) {
+            if (_heartRateIcon != null) {
+                var iconWidth = 12;
+                var gap = 2;
+                var textWidth = dc.getTextWidthInPixels(_heartRateString, Graphics.FONT_TINY);
+                var totalWidth = iconWidth + gap + textWidth;
+                var startX = layout["heartRateX"] - totalWidth / 2;
+                
+                dc.drawBitmap(startX, layout["heartRateY"] + 5, _heartRateIcon);
+                dc.drawText(startX + iconWidth + gap, layout["heartRateY"], Graphics.FONT_TINY, _heartRateString, Graphics.TEXT_JUSTIFY_LEFT);
+            } else {
+                dc.drawText(layout["heartRateX"], layout["heartRateY"], Graphics.FONT_TINY, _heartRateString, Graphics.TEXT_JUSTIFY_CENTER);
+            }
+        }
+    }
 
     function onHide() as Void {
     }
@@ -240,6 +279,8 @@ class CleanFaceView extends WatchUi.WatchFace {
 
     function onEnterSleep() as Void {
         _isAwake = false;
+        // Request update to clear seconds immediately
+        WatchUi.requestUpdate();
     }
 
     function onSettingsChanged() as Void {
@@ -283,9 +324,24 @@ class CleanFaceView extends WatchUi.WatchFace {
         }
     }
     
+    private function updateHeartRate() as Void {
+        var hrHistory = ActivityMonitor.getHeartRateHistory(1, true);
+        if (hrHistory != null) {
+            var hrIterator = hrHistory.next();
+            if (hrIterator != null && hrIterator.heartRate != ActivityMonitor.INVALID_HR_SAMPLE) {
+                _heartRateString = Lang.format("$1$", [hrIterator.heartRate]);
+            } else {
+                _heartRateString = "--";
+            }
+        } else {
+            _heartRateString = "--";
+        }
+    }
+    
     private function loadIcons() as Void {
         _batteryIcon = WatchUi.loadResource(Rez.Drawables.BatteryIcon);
         _stepsIcon = WatchUi.loadResource(Rez.Drawables.StepsIcon);
+        _heartRateIcon = WatchUi.loadResource(Rez.Drawables.HeartRateIcon);
         _largeTimeFont = WatchUi.loadResource(Rez.Fonts.LargeTimeFont);
     }
 
