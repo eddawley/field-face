@@ -1,0 +1,5 @@
+project.manifest = manifest.xml
+
+# Build for Instinct 3 Solar 45mm
+instinct3solar45mm.sourcePath = source;resources
+instinct3solar45mm.resourcePath = resources

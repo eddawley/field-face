@@ -1,0 +1,37 @@
+# Connect IQ build outputs
+/bin/
+*.prg
+*.iq
+
+# Garmin SDK cache and temporary files
+/.vscode/
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+build/
+.builds/
+*.tmp
+*.log
+
+# IDE files
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Developer keys (if using)
+*.der
+*.p12
+
+# Simulator logs
+simulator.log
