@@ -8,47 +8,77 @@ import Toybox.ActivityMonitor;
 import Toybox.Application;
 
 class Layout {
-    public var timeX as Number;
-    public var timeY as Number;
-    public var timeFont as Graphics.FontType;
-    public var timeWidth as Number;
-    public var dateX as Number;
-    public var dateY as Number;
-    public var batteryMaxX as Number;
-    public var batteryY as Number;
-    public var batteryTextY as Number;
-    public var secondsX as Number;
-    public var secondsY as Number;
-    public var heartRateX as Number;
-    public var heartRateY as Number;
-    public var stepsX as Number;
-    public var stepsY as Number;
-    public var stepsTextY as Number;
+    public var timeX as Number = 0;
+    public var timeY as Number = 0;
+    public var timeFont as Graphics.FontType = Graphics.FONT_NUMBER_THAI_HOT;
+    public var timeWidth as Number = 0;
+    public var dateX as Number = 0;
+    public var dateY as Number = 0;
+    public var batteryMaxX as Number = 0;
+    public var batteryY as Number = 0;
+    public var batteryTextY as Number = 0;
+    public var secondsX as Number = 0;
+    public var secondsY as Number = 0;
+    public var heartRateX as Number = 0;
+    public var heartRateY as Number = 0;
+    public var stepsX as Number = 0;
+    public var stepsY as Number = 0;
+    public var stepsTextY as Number = 0;
     
-    function initialize(
-        timeX as Number, timeY as Number, timeFont as Graphics.FontType, timeWidth as Number,
-        dateX as Number, dateY as Number,
-        batteryMaxX as Number, batteryY as Number, batteryTextY as Number,
-        secondsX as Number, secondsY as Number,
-        heartRateX as Number, heartRateY as Number,
-        stepsX as Number, stepsY as Number, stepsTextY as Number
-    ) {
+    function initialize() {
+        // Properties initialized with defaults above
+    }
+    
+    function calculate(dc as Dc, width as Number, height as Number, timeFont as Graphics.FontType, hour as Number, is24Hour as Boolean) as Void {
+        // Calculate actual time width based on current hour format
+        var actualHour = hour;
+        if (!is24Hour) {
+            if (actualHour == 0) {
+                actualHour = 12;
+            } else if (actualHour > 12) {
+                actualHour = actualHour - 12;
+            }
+        }
+        
+        // Calculate width based on actual hour format to position seconds correctly
+        var timeString;
+        if (is24Hour) {
+            timeString = actualHour < 10 ? "0" + actualHour + ":00" : actualHour + ":00";
+        } else {
+            timeString = actualHour + ":00";
+        }
+        
+        var timeWidth = dc.getTextWidthInPixels(timeString, timeFont);
+        var timeX = width / 2 - 2;
+        var timeY = height / 2 - 22;
+        
+        // Time positioning
         self.timeX = timeX;
         self.timeY = timeY;
         self.timeFont = timeFont;
         self.timeWidth = timeWidth;
-        self.dateX = dateX;
-        self.dateY = dateY;
-        self.batteryMaxX = batteryMaxX;
-        self.batteryY = batteryY;
-        self.batteryTextY = batteryTextY;
-        self.secondsX = secondsX;
-        self.secondsY = secondsY;
-        self.heartRateX = heartRateX;
-        self.heartRateY = heartRateY;
-        self.stepsX = stepsX;
-        self.stepsY = stepsY;
-        self.stepsTextY = stepsTextY;
+        
+        // Date directly above time, left aligned (below battery)
+        self.dateX = timeX - timeWidth / 2;
+        self.dateY = timeY - 10;
+        
+        // Battery at top, avoiding right edge at 99px
+        self.batteryMaxX = 99;
+        self.batteryY = 20;
+        self.batteryTextY = 15;
+        
+        // Seconds right after time with minimal spacing, top aligned
+        self.secondsX = timeX + (timeWidth / 2) + 1;
+        self.secondsY = timeY + 10;
+        
+        // Heart rate centered in top right subscreen (100px to edge)
+        self.heartRateX = 100 + (width - 100) / 2 + 5;
+        self.heartRateY = 20;
+        
+        // Steps at bottom center
+        self.stepsX = width / 2;
+        self.stepsY = height - 15;
+        self.stepsTextY = height - 20;
     }
 }
 
@@ -66,6 +96,7 @@ class CleanFaceView extends WatchUi.WatchFace {
     private var _lastWidth = 0;
     private var _lastHeight = 0;
     private var _lastTimeFont = null;
+    private var _lastHour = -1;
     private var _lastBatteryMinute = -1;
     private var _lastStepsMinute = -1;
     private var _lastDateDay = -1;
@@ -113,23 +144,6 @@ class CleanFaceView extends WatchUi.WatchFace {
         drawHeartRate(dc);
     }
     
-    private function calculateLayout(dc as Dc, width as Number, height as Number, timeFont as Graphics.FontType) as Layout {
-        // Calculate time dimensions and position
-        var timeWidth = dc.getTextWidthInPixels("00:00", timeFont);
-        var timeX = width / 2 - 2;
-        var timeY = height / 2 - 22;
-        
-        // Calculate all positions relative to time
-        return new Layout(
-            timeX, timeY, timeFont, timeWidth,
-            timeX - timeWidth / 2, timeY - 10,
-            99, 20, 15,
-            timeX + timeWidth / 2 + 1, timeY + 10,
-            100 + (width - 100) / 2 + 5, 20,
-            width / 2, height - 15, height - 20
-        );
-    }
-    
     private function updateCachedValues(clockTime as ClockTime, dc as Dc, width as Number, height as Number, timeFont as Graphics.FontType) as Void {
         // Load icons on first run
         if (_batteryIcon == null) {
@@ -167,12 +181,15 @@ class CleanFaceView extends WatchUi.WatchFace {
             }
         }
         
-        // Update layout when screen dimensions or font changes
-        if (_cachedLayout == null || width != _lastWidth || height != _lastHeight || timeFont != _lastTimeFont) {
-            _cachedLayout = calculateLayout(dc, width, height, timeFont);
+        // Update layout when screen dimensions, font changes, or hour changes (for single-digit positioning)
+        if (_cachedLayout == null || width != _lastWidth || height != _lastHeight || timeFont != _lastTimeFont || clockTime.hour != _lastHour) {
+            _cachedLayout = new Layout();
+            var is24Hour = _is24Hour != null ? _is24Hour : false;
+            _cachedLayout.calculate(dc, width, height, timeFont, clockTime.hour, is24Hour);
             _lastWidth = width;
             _lastHeight = height;
             _lastTimeFont = timeFont;
+            _lastHour = clockTime.hour;
         }
     }
     
@@ -228,7 +245,6 @@ class CleanFaceView extends WatchUi.WatchFace {
                 clockTime.min.format("%02d")
             ]);
         }
-        var secondsString = clockTime.sec.format("%02d");
         
         // Time in center with large custom font
         dc.drawText(
@@ -241,6 +257,7 @@ class CleanFaceView extends WatchUi.WatchFace {
         
         // Seconds right after time with minimal spacing (only when awake)
         if (_isAwake) {
+            var secondsString = clockTime.sec.format("%02d");
             dc.drawText(
                 _cachedLayout.secondsX,
                 _cachedLayout.secondsY,
