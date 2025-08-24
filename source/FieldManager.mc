@@ -53,8 +53,9 @@ class FieldManager {
     }
     
     private function _refreshFields(clockTime as System.ClockTime, isAwake as Boolean) as Void {
+        var context = new RefreshContext(clockTime, isAwake);
         for (var i = 0; i < _fields.size(); i++) {
-            _fields[i].refreshValue(clockTime, isAwake);
+            _fields[i].refreshValue(context);
         }
     }
     

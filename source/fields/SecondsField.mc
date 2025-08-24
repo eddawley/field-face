@@ -8,8 +8,9 @@ class SecondsField extends Field {
         _font = Graphics.FONT_XTINY;
     }
     
-    public function refreshValue(clockTime as System.ClockTime, isAwake as Boolean) as Void {
-        if (isAwake) {
+    protected function _refreshValue(context as RefreshContext) as Void {
+        if (context.isAwake()) {
+            var clockTime = context.getClockTime();
             _lastValue = clockTime.sec.format("%02d");
         }
     }

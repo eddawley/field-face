@@ -35,11 +35,11 @@ class Field {
         _y = y;
     }
     
-    protected function shouldUpdate(currentTime as Number) as Boolean {
-        return _lastUpdateTime == 0 || (currentTime - _lastUpdateTime) >= _updateInterval;
+    public function refreshValue(context as RefreshContext) as Void {
+        _refreshValue(context);
     }
     
-    public function refreshValue(clockTime as System.ClockTime, isAwake as Boolean) as Void {
+    protected function _refreshValue(context as RefreshContext) as Void {
         // Override in subclasses
     }
     

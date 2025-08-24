@@ -10,10 +10,11 @@ class DateField extends Field {
         _font = Graphics.FONT_XTINY;
     }
     
-    public function refreshValue(clockTime as System.ClockTime, isAwake as Boolean) as Void {
+    protected function _refreshValue(context as RefreshContext) as Void {
+        var clockTime = context.getClockTime();
         // Update at midnight or first run
         if (_lastUpdateTime == 0 || (clockTime.hour == 0 && clockTime.min == 0)) {
-            _lastUpdateTime = clockTime.hour * 3600 + clockTime.min * 60 + clockTime.sec;
+            _lastUpdateTime = context.getCurrentTime();
             
             var today = Gregorian.info(Time.now(), Time.FORMAT_MEDIUM);
             var fullDayName = today.day_of_week;

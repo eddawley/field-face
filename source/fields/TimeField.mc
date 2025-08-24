@@ -15,7 +15,8 @@ class TimeField extends Field {
         _is24Hour = is24Hour;
     }
     
-    public function refreshValue(clockTime as System.ClockTime, isAwake as Boolean) as Void {
+    protected function _refreshValue(context as RefreshContext) as Void {
+        var clockTime = context.getClockTime();
         if (_is24Hour) {
             _lastValue = Lang.format("$1$:$2$", [
                 clockTime.hour.format("%02d"),

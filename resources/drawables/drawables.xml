@@ -4,4 +4,8 @@
     <bitmap id="StepsIcon" filename="steps_icon.png" />
     <bitmap id="BatteryIcon" filename="battery_icon.png" />
     <bitmap id="HeartRateIcon" filename="heart_icon.png" />
+    <bitmap id="SunIcon" filename="sun_icon.png" />
+    <bitmap id="CloudIcon" filename="cloud_icon.png" />
+    <bitmap id="RainIcon" filename="rain_icon.png" />
+    <bitmap id="SnowIcon" filename="snow_icon.png" />
 </drawables>

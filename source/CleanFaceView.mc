@@ -18,7 +18,8 @@ class CleanFaceView extends WatchUi.WatchFace {
         _fieldManager.addField(new TimeField(LayoutLocation.TIME));
         _fieldManager.addField(new BatteryField(LayoutLocation.TOP));
         _fieldManager.addField(new StepsField(LayoutLocation.BOTTOM));
-        _fieldManager.addField(new HeartRateField(LayoutLocation.UPPER_RIGHT));
+        // _fieldManager.addField(new HeartRateField(LayoutLocation.UPPER_RIGHT));
+        _fieldManager.addField(new WeatherField(LayoutLocation.UPPER_RIGHT));
         _fieldManager.addField(new DateField(LayoutLocation.ABOVE_TIME));
         _fieldManager.addField(new SecondsField(LayoutLocation.RIGHT_OF_TIME));
     }

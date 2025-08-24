@@ -10,10 +10,9 @@ class StepsField extends Field {
         _font = Graphics.FONT_TINY;
     }
     
-    public function refreshValue(clockTime as System.ClockTime, isAwake as Boolean) as Void {
-        var currentTime = clockTime.hour * 3600 + clockTime.min * 60 + clockTime.sec;
-        if (shouldUpdate(currentTime)) {
-            _lastUpdateTime = currentTime;
+    protected function _refreshValue(context as RefreshContext) as Void {
+        if (context.shouldUpdate(_lastUpdateTime, _updateInterval)) {
+            _lastUpdateTime = context.getCurrentTime();
             
             var activityInfo = ActivityMonitor.getInfo();
             if (activityInfo != null && activityInfo.steps != null) {

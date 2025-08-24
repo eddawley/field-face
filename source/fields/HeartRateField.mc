@@ -10,16 +10,15 @@ class HeartRateField extends Field {
         _font = Graphics.FONT_TINY;
     }
     
-    public function refreshValue(clockTime as System.ClockTime, isAwake as Boolean) as Void {
-        if (!isAwake) {
+    protected function _refreshValue(context as RefreshContext) as Void {
+        if (!context.isAwake()) {
             return; // Only update when awake
         }
         
-        var currentTime = clockTime.hour * 3600 + clockTime.min * 60 + clockTime.sec;
-        var interval = isAwake ? 30 : 120;
+        var interval = context.isAwake() ? 30 : 120;
         
-        if (_lastUpdateTime == 0 || (currentTime - _lastUpdateTime) >= interval) {
-            _lastUpdateTime = currentTime;
+        if (_lastUpdateTime == 0 || (context.getCurrentTime() - _lastUpdateTime) >= interval) {
+            _lastUpdateTime = context.getCurrentTime();
             
             var hrHistory = ActivityMonitor.getHeartRateHistory(1, true);
             if (hrHistory != null) {
