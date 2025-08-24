@@ -1,119 +1,36 @@
 import Toybox.Graphics;
-import Toybox.Lang;
 import Toybox.System;
 import Toybox.WatchUi;
-import Toybox.Time;
-import Toybox.Time.Gregorian;
-import Toybox.ActivityMonitor;
-import Toybox.Application;
-
-class Layout {
-    public var timeX as Number = 0;
-    public var timeY as Number = 0;
-    public var timeFont as Graphics.FontType = Graphics.FONT_NUMBER_THAI_HOT;
-    public var timeWidth as Number = 0;
-    public var dateX as Number = 0;
-    public var dateY as Number = 0;
-    public var batteryMaxX as Number = 0;
-    public var batteryY as Number = 0;
-    public var batteryTextY as Number = 0;
-    public var secondsX as Number = 0;
-    public var secondsY as Number = 0;
-    public var heartRateX as Number = 0;
-    public var heartRateY as Number = 0;
-    public var stepsX as Number = 0;
-    public var stepsY as Number = 0;
-    public var stepsTextY as Number = 0;
-    
-    function initialize() {
-        // Properties initialized with defaults above
-    }
-    
-    function calculate(dc as Dc, width as Number, height as Number, timeFont as Graphics.FontType, hour as Number, is24Hour as Boolean) as Void {
-        // Calculate actual time width based on current hour format
-        var actualHour = hour;
-        if (!is24Hour) {
-            if (actualHour == 0) {
-                actualHour = 12;
-            } else if (actualHour > 12) {
-                actualHour = actualHour - 12;
-            }
-        }
-        
-        // Calculate width based on actual hour format to position seconds correctly
-        var timeString;
-        if (is24Hour) {
-            timeString = actualHour < 10 ? "0" + actualHour + ":00" : actualHour + ":00";
-        } else {
-            timeString = actualHour + ":00";
-        }
-        
-        var timeWidth = dc.getTextWidthInPixels(timeString, timeFont);
-        var timeX = width / 2 - 2;
-        var timeY = height / 2 - 22;
-        
-        // Time positioning
-        self.timeX = timeX;
-        self.timeY = timeY;
-        self.timeFont = timeFont;
-        self.timeWidth = timeWidth;
-        
-        // Date directly above time, left aligned (below battery)
-        self.dateX = timeX - timeWidth / 2;
-        self.dateY = timeY - 10;
-        
-        // Battery at top, avoiding right edge at 99px
-        self.batteryMaxX = 99;
-        self.batteryY = 20;
-        self.batteryTextY = 15;
-        
-        // Seconds right after time with minimal spacing, top aligned
-        self.secondsX = timeX + (timeWidth / 2) + 1;
-        self.secondsY = timeY + 10;
-        
-        // Heart rate centered in top right subscreen (100px to edge)
-        self.heartRateX = 100 + (width - 100) / 2 + 5;
-        self.heartRateY = 20;
-        
-        // Steps at bottom center
-        self.stepsX = width / 2;
-        self.stepsY = height - 15;
-        self.stepsTextY = height - 20;
-    }
-}
+import Toybox.Lang;
 
 class CleanFaceView extends WatchUi.WatchFace {
     private var _isAwake = false;
     private var _is24Hour = null;
-    private var _batteryString = "--";
-    private var _stepsString = "--";
-    private var _heartRateString = "--";
-    private var _batteryIcon = null;
-    private var _stepsIcon = null;
-    private var _heartRateIcon = null;
-    private var _largeTimeFont = null;
-    private var _cachedLayout as Layout or Null = null;
-    private var _lastWidth = 0;
-    private var _lastHeight = 0;
-    private var _lastTimeFont = null;
-    private var _lastHour = -1;
-    private var _lastBatteryMinute = -1;
-    private var _lastStepsMinute = -1;
-    private var _lastDateDay = -1;
-    private var _lastHeartRateTime = 0;
+    private var _fieldManager as FieldManager;
 
     function initialize() {
         WatchFace.initialize();
+        
+        // Initialize field manager and add all fields
+        _fieldManager = new FieldManager();
+        
+        // Add all fields in their default locations
+        _fieldManager.addField(new TimeField(LayoutLocation.TIME));
+        _fieldManager.addField(new BatteryField(LayoutLocation.TOP));
+        _fieldManager.addField(new StepsField(LayoutLocation.BOTTOM));
+        _fieldManager.addField(new HeartRateField(LayoutLocation.UPPER_RIGHT));
+        _fieldManager.addField(new DateField(LayoutLocation.ABOVE_TIME));
+        _fieldManager.addField(new SecondsField(LayoutLocation.RIGHT_OF_TIME));
     }
 
     function onLoad(dc as Dc) as Void {
-        // Initialize settings only
+        // Initialize settings
         _is24Hour = System.getDeviceSettings().is24Hour;
+        _fieldManager.set24Hour(_is24Hour);
         
-        // Note: Layout, data, and icon initialization deferred to first onUpdate()
+        // Note: Field/Icon initialization deferred to first onUpdate()
         // where we have proper drawing context dimensions
 
-        
         // Force initial update request
         WatchUi.requestUpdate();
     }
@@ -125,181 +42,14 @@ class CleanFaceView extends WatchUi.WatchFace {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
         
-        
         var clockTime = System.getClockTime();
         var width = dc.getWidth();
         var height = dc.getHeight();
         
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         
-        // Update cached values and layout based on conditions
-        var timeFont = _largeTimeFont != null ? _largeTimeFont : Graphics.FONT_NUMBER_THAI_HOT;
-        updateCachedValues(clockTime, dc, width, height, timeFont);
-        
-        // Draw all display elements using cached layout
-        drawBattery(dc);
-        drawDate(dc);
-        drawTime(dc, clockTime);
-        drawSteps(dc);
-        drawHeartRate(dc);
-    }
-    
-    private function updateCachedValues(clockTime as ClockTime, dc as Dc, width as Number, height as Number, timeFont as Graphics.FontType) as Void {
-        // Load icons on first run
-        if (_batteryIcon == null) {
-            loadIcons();
-        }
-        
-        // Update battery every 5 minutes or on first run
-        if (_lastBatteryMinute == -1 || (clockTime.min != _lastBatteryMinute && clockTime.min % 5 == 0)) {
-            _lastBatteryMinute = clockTime.min;
-            updateBattery();
-        }
-        
-        // Update date daily or on first run  
-        if (_lastDateDay == -1 || (clockTime.hour == 0 && clockTime.min == 0 && _lastDateDay != clockTime.sec)) {
-            _lastDateDay = clockTime.sec;
-            updateDate();
-        }
-        
-        // Update steps every 10 minutes or on first run
-        if (_lastStepsMinute == -1 || (clockTime.min != _lastStepsMinute && clockTime.min % 10 == 0)) {
-            _lastStepsMinute = clockTime.min;
-            updateSteps();
-        }
-        
-        // Update heart rate with smart timing (only when awake) or on first run
-        if (_isAwake) {
-            var currentTime = clockTime.hour * 3600 + clockTime.min * 60 + clockTime.sec;
-            var awakeInterval = 30; // 30 seconds when awake
-            var sleepInterval = 120; // 120 seconds when sleeping
-            var interval = _isAwake ? awakeInterval : sleepInterval;
-            
-            if (_lastHeartRateTime == 0 || currentTime - _lastHeartRateTime >= interval) {
-                _lastHeartRateTime = currentTime;
-                updateHeartRate();
-            }
-        }
-        
-        // Update layout when screen dimensions, font changes, or hour changes (for single-digit positioning)
-        if (_cachedLayout == null || width != _lastWidth || height != _lastHeight || timeFont != _lastTimeFont || clockTime.hour != _lastHour) {
-            _cachedLayout = new Layout();
-            var is24Hour = _is24Hour != null ? _is24Hour : false;
-            _cachedLayout.calculate(dc, width, height, timeFont, clockTime.hour, is24Hour);
-            _lastWidth = width;
-            _lastHeight = height;
-            _lastTimeFont = timeFont;
-            _lastHour = clockTime.hour;
-        }
-    }
-    
-    private function drawBattery(dc as Dc) as Void {
-        // Battery at top with icon, can extend up to pixel 99
-        if (_batteryIcon != null) {
-            var iconWidth = 12;
-            var gap = 2;
-            var textWidth = dc.getTextWidthInPixels(_batteryString, Graphics.FONT_TINY);
-            var totalWidth = iconWidth + gap + textWidth;
-            var startX = _cachedLayout.batteryMaxX - totalWidth;
-            
-            dc.drawBitmap(startX, _cachedLayout.batteryY, _batteryIcon);
-            dc.drawText(startX + iconWidth + gap, _cachedLayout.batteryTextY, Graphics.FONT_TINY, _batteryString, Graphics.TEXT_JUSTIFY_LEFT);
-        } else {
-            dc.drawText(_cachedLayout.batteryMaxX - dc.getTextWidthInPixels(_batteryString, Graphics.FONT_TINY), _cachedLayout.batteryTextY, Graphics.FONT_TINY, _batteryString, Graphics.TEXT_JUSTIFY_LEFT);
-        }
-    }
-    
-    private function drawDate(dc as Dc) as Void {
-        // Date directly above time, left justified to time
-        var today = Gregorian.info(Time.now(), Time.FORMAT_MEDIUM);
-        var fullDayName = today.day_of_week;
-        var monthAbbrev = today.month.substring(0, 3);
-        var dateString = Lang.format("$1$, $2$ $3$", [fullDayName, monthAbbrev, today.day]);
-        
-        dc.drawText(
-            _cachedLayout.dateX,
-            _cachedLayout.dateY,
-            Graphics.FONT_XTINY,
-            dateString,
-            Graphics.TEXT_JUSTIFY_LEFT
-        );
-    }
-    
-    private function drawTime(dc as Dc, clockTime as ClockTime) as Void {
-        // Use cached 24-hour setting
-        var timeString;
-        if (_is24Hour) {
-            timeString = Lang.format("$1$:$2$", [
-                clockTime.hour.format("%02d"),
-                clockTime.min.format("%02d")
-            ]);
-        } else {
-            var hour = clockTime.hour;
-            if (hour == 0) {
-                hour = 12;
-            } else if (hour > 12) {
-                hour = hour - 12;
-            }
-            timeString = Lang.format("$1$:$2$", [
-                hour,
-                clockTime.min.format("%02d")
-            ]);
-        }
-        
-        // Time in center with large custom font
-        dc.drawText(
-            _cachedLayout.timeX,
-            _cachedLayout.timeY,
-            _cachedLayout.timeFont,
-            timeString,
-            Graphics.TEXT_JUSTIFY_CENTER
-        );
-        
-        // Seconds right after time with minimal spacing (only when awake)
-        if (_isAwake) {
-            var secondsString = clockTime.sec.format("%02d");
-            dc.drawText(
-                _cachedLayout.secondsX,
-                _cachedLayout.secondsY,
-                Graphics.FONT_XTINY,
-                secondsString,
-                Graphics.TEXT_JUSTIFY_LEFT
-            );
-        }
-    }
-    
-    private function drawSteps(dc as Dc) as Void {
-        // Steps at bottom with icon
-        if (_stepsIcon != null) {
-            var iconWidth = 12;
-            var gap = 2;
-            var textWidth = dc.getTextWidthInPixels(_stepsString, Graphics.FONT_TINY);
-            var totalWidth = iconWidth + gap + textWidth;
-            var startX = _cachedLayout.stepsX - totalWidth / 2;
-            
-            dc.drawBitmap(startX, _cachedLayout.stepsY, _stepsIcon);
-            dc.drawText(startX + iconWidth + gap, _cachedLayout.stepsTextY, Graphics.FONT_TINY, _stepsString, Graphics.TEXT_JUSTIFY_LEFT);
-        } else {
-            dc.drawText(_cachedLayout.stepsX, _cachedLayout.stepsTextY, Graphics.FONT_TINY, _stepsString, Graphics.TEXT_JUSTIFY_CENTER);
-        }
-    }
-    
-    private function drawHeartRate(dc as Dc) as Void {
-        // Heart rate centered in top right subscreen (only when awake)
-        if (_isAwake) {
-            if (_heartRateIcon != null) {
-                var iconWidth = 12;
-                var gap = 2;
-                var textWidth = dc.getTextWidthInPixels(_heartRateString, Graphics.FONT_TINY);
-                var totalWidth = iconWidth + gap + textWidth;
-                var startX = _cachedLayout.heartRateX - totalWidth / 2;
-                
-                dc.drawBitmap(startX, _cachedLayout.heartRateY + 5, _heartRateIcon);
-                dc.drawText(startX + iconWidth + gap, _cachedLayout.heartRateY, Graphics.FONT_TINY, _heartRateString, Graphics.TEXT_JUSTIFY_LEFT);
-            } else {
-                dc.drawText(_cachedLayout.heartRateX, _cachedLayout.heartRateY, Graphics.FONT_TINY, _heartRateString, Graphics.TEXT_JUSTIFY_CENTER);
-            }
-        }
+        // Draw all fields
+        _fieldManager.draw(dc, _isAwake, clockTime, width, height);
     }
 
     function onHide() as Void {
@@ -318,73 +68,7 @@ class CleanFaceView extends WatchUi.WatchFace {
 
     function onSettingsChanged() as Void {
         _is24Hour = System.getDeviceSettings().is24Hour;
-    }
-    
-    private function updateBattery() as Void {
-        var stats = System.getSystemStats();
-        if (stats != null) {
-            var battery = stats.battery;
-            var batteryInDays = stats.batteryInDays;
-            if (batteryInDays != null && batteryInDays > 1) {
-                _batteryString = Lang.format("$1$d", [batteryInDays.format("%.0f")]);
-            } else if (battery != null) {
-                _batteryString = Lang.format("$1$%", [battery.format("%.0f")]);
-            } else {
-                _batteryString = "--";
-            }
-        } else {
-            _batteryString = "--";
-        }
-    }
-    
-    private function updateSteps() as Void {
-        var activityInfo = ActivityMonitor.getInfo();
-        if (activityInfo != null && activityInfo.steps != null) {
-            _stepsString = Lang.format("$1$", [activityInfo.steps]);
-        } else {
-            _stepsString = "--";
-        }
-    }
-    
-    private function updateDate() as Void {
-        // Date is calculated on-demand in drawDate, no caching needed
-    }
-    
-    private function updateHeartRate() as Void {
-        var hrHistory = ActivityMonitor.getHeartRateHistory(1, true);
-        if (hrHistory != null) {
-            var hrIterator = hrHistory.next();
-            if (hrIterator != null && hrIterator.heartRate != ActivityMonitor.INVALID_HR_SAMPLE) {
-                _heartRateString = Lang.format("$1$", [hrIterator.heartRate]);
-            } else {
-                _heartRateString = "--";
-            }
-        } else {
-            _heartRateString = "--";
-        }
-    }
-    
-    private function loadIcons() as Void {
-        try {
-            _batteryIcon = WatchUi.loadResource(Rez.Drawables.BatteryIcon);
-        } catch(ex) {
-            _batteryIcon = null;
-        }
-        try {
-            _stepsIcon = WatchUi.loadResource(Rez.Drawables.StepsIcon);
-        } catch(ex) {
-            _stepsIcon = null;
-        }
-        try {
-            _heartRateIcon = WatchUi.loadResource(Rez.Drawables.HeartRateIcon);
-        } catch(ex) {
-            _heartRateIcon = null;
-        }
-        try {
-            _largeTimeFont = WatchUi.loadResource(Rez.Fonts.LargeTimeFont);
-        } catch(ex) {
-            _largeTimeFont = null;
-        }
+        _fieldManager.set24Hour(_is24Hour);
     }
 
 }
