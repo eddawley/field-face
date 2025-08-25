@@ -73,7 +73,7 @@ class Region{
         }
         else {
             if (_field instanceof TimeField) {
-                dc.drawText(135, 0, _field.font, _field.text, Graphics.TEXT_JUSTIFY_RIGHT);
+                dc.drawText(131, 0, _field.font, _field.text, Graphics.TEXT_JUSTIFY_RIGHT);
             } else {
                 dc.drawText(0, 0, _field.font, _field.text, Graphics.TEXT_JUSTIFY_LEFT);
             }
