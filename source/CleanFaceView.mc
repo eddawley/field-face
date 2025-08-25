@@ -135,6 +135,11 @@ class CleanFaceView extends WatchUi.WatchFace {
         WatchUi.requestUpdate();
     }
 
+    function onShow() as Void {
+        _regionManager.forceNextDraw();
+        WatchUi.requestUpdate();
+    }
+
     function onSettingsChanged() as Void {
     }
 

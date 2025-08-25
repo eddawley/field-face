@@ -34,7 +34,8 @@ class Region{
             // clear if we haven't yet
             if (_lastDrawn != _cleared) {
                 _clear();
-                _lastDrawn = _cleared;
+                forceNextDraw();
+                // next draw should clear text
                 _field.text = _cleared.text;
             }
             return;
@@ -83,6 +84,10 @@ class Region{
         _lastDrawn.text = _field.text;
         _lastDrawn.icon = _field.icon;
 
+    }
+
+    public function forceNextDraw() as Void {
+        _lastDrawn = _cleared;
     }
 
     protected function _clear() as Void {

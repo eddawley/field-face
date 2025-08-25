@@ -37,6 +37,12 @@ class RegionManager {
         }
     }
 
+    public function forceNextDraw() as Void {
+        for (var i = 0; i < _regions.size(); i++) {
+            _regions[i].forceNextDraw();
+        }
+    }
+
     public function addRegion(region as Region) as Void {
         _regions.add(region);
     }
