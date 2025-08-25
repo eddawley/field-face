@@ -3,60 +3,53 @@ import Toybox.System;
 import Toybox.Lang;
 import Toybox.WatchUi;
 import Toybox.Weather;
+import Toybox.Time;
 
 class WeatherField extends Field {
-    private var _currentCondition = null;
+    private var _refreshInterval as Time.Duration = new Time.Duration(900); // 15 minutes
     private var _sunIcon = null;
     private var _cloudIcon = null;
     private var _rainIcon = null;
     private var _snowIcon = null;
     private var _conditionToIconMap as Dictionary = {};
-    
-    public function initialize(location as Number) {
-        Field.initialize(location, 900); // 15 minutes
-        _font = Graphics.FONT_TINY;
 
+    public function initialize() {
+        Field.initialize();
         _buildConditionMap();
+
+        font = Graphics.FONT_TINY;
     }
     
-    protected function _refreshValue(context as RefreshContext) as Void {
-        if (!context.shouldUpdate(_lastUpdateTime, _updateInterval)) {
-            return;
-        }
-        
-        _lastUpdateTime = context.getCurrentTime();
-        
+    public function refresh(context as RefreshContext) as Time.Duration {
         if (!(Toybox has :Weather)) {
-            _lastValue = "--";
-            _currentCondition = null;
-            _icon = null;
-            return;
+            text = "--";
+            icon = null;
+            return _refreshInterval;
         }
         
         var currentConditions = Weather.getCurrentConditions();
         if (currentConditions == null || currentConditions.temperature == null) {
-            _lastValue = "--";
-            _currentCondition = null;
-            _icon = null;
-            return;
+            text = "--";
+            icon = null;
+            return _refreshInterval;
         }
         
         var temp = currentConditions.temperature;
         var deviceSettings = System.getDeviceSettings();
         
-        // Store condition for icon selection
-        _currentCondition = currentConditions.condition;
-        
         // Convert to Fahrenheit if needed
         if (deviceSettings.temperatureUnits == 1) { // UNIT_IMPERIAL
             temp = (temp * 9 / 5) + 32;
-            _lastValue = Lang.format("$1$°F", [temp.format("%.0f")]);
+            text = Lang.format("$1$°F", [temp.format("%.0f")]);
         } else {
-            _lastValue = Lang.format("$1$°C", [temp.format("%.0f")]);
+            text = Lang.format("$1$°C", [temp.format("%.0f")]);
         }
         
         // Update icon based on condition
-        _refreshIcon();
+        var possible = _conditionToIconMap.get(currentConditions.condition);
+        icon = possible != null ? possible : _cloudIcon;
+
+        return _refreshInterval;
     }
     
     private function _buildConditionMap() as Void {
@@ -123,32 +116,13 @@ class WeatherField extends Field {
         _conditionToIconMap[Weather.CONDITION_ICE_SNOW] = _snowIcon;
     }
     
-    private function _refreshIcon() as Void {
-        if (_currentCondition == null) {
-            _icon = null;
-            return;
-        }
-        
-        // Look up condition in map, default to cloud icon
-        var possible = _conditionToIconMap.get(_currentCondition);
-        _icon = possible != null ? possible : _cloudIcon;
-    }
-    
-    public function loadIcon() as Void {
+    public function loadResources() as Void {
         // Preload all weather icons once
         try {
             _sunIcon = WatchUi.loadResource(Rez.Drawables.SunIcon);
             _cloudIcon = WatchUi.loadResource(Rez.Drawables.CloudIcon);
             _rainIcon = WatchUi.loadResource(Rez.Drawables.RainIcon);
             _snowIcon = WatchUi.loadResource(Rez.Drawables.SnowIcon);
-        } catch(ex) {
-            _sunIcon = null;
-            _cloudIcon = null;
-            _rainIcon = null;
-            _snowIcon = null;
-        }
-        
-        // Set initial icon based on current condition
-        _refreshIcon();
+        } catch(ex) {}
     }
 }

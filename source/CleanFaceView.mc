@@ -4,72 +4,138 @@ import Toybox.WatchUi;
 import Toybox.Lang;
 
 class CleanFaceView extends WatchUi.WatchFace {
-    private var _isAwake = false;
-    private var _is24Hour = null;
-    private var _fieldManager as FieldManager;
+    private var _sleeping = false;
+    private var _regionManager as RegionManager;
+    private var _doneInitialClear as Boolean = false;
 
     function initialize() {
         WatchFace.initialize();
-        
-        // Initialize field manager and add all fields
-        _fieldManager = new FieldManager();
-        
-        // Add all fields in their default locations
-        _fieldManager.addField(new TimeField(LayoutLocation.TIME));
-        _fieldManager.addField(new BatteryField(LayoutLocation.TOP));
-        _fieldManager.addField(new StepsField(LayoutLocation.BOTTOM));
-        // _fieldManager.addField(new HeartRateField(LayoutLocation.UPPER_RIGHT));
-        _fieldManager.addField(new WeatherField(LayoutLocation.UPPER_RIGHT));
-        _fieldManager.addField(new DateField(LayoutLocation.ABOVE_TIME));
-        _fieldManager.addField(new SecondsField(LayoutLocation.RIGHT_OF_TIME));
+
+        var upperRight = new WatchUi.Layer({
+            :width=>176-117, :height=>30
+        });
+        var aboveTime = new WatchUi.Layer({
+            :width=>90, :height=>25
+        });
+        var time = new WatchUi.Layer({
+            :width=>150, :height=>72
+        });
+        var top = new WatchUi.Layer({
+            :width=>60, :height=>25
+        });
+        var bottom = new WatchUi.Layer({
+            :width=>60, :height=>25
+        });
+        var rightOfTime = new WatchUi.Layer({
+            :width=>30, :height=>30
+        });
+
+        _regionManager = new RegionManager();
+        _regionManager.addRegion(
+            new Region(
+                "upperRight",
+            upperRight,
+            new WeatherField()
+            )
+        );
+        _regionManager.addRegion(
+            new Region(
+                "time",
+            time,
+            new TimeField()
+            )
+        );
+        _regionManager.addRegion(
+            new Region(
+                "aboveTime",
+            aboveTime,
+            new DateField()
+            )
+        );
+        _regionManager.addRegion(
+            new Region(
+                "top",
+            top,
+            new BatteryField()
+            )
+        );
+        _regionManager.addRegion(
+            new Region(
+                "bottom",
+            bottom,
+            new StepsField()
+            )
+        );
+        _regionManager.addRegion(
+            new Region(
+                "rightOfTime",
+            rightOfTime,
+            new SecondsField()
+            )
+        );
+
+        upperRight.setLocation(117,20);
+        time.setLocation(10,60);
+        aboveTime.setLocation(15,50);
+        top.setLocation(60,10);
+        bottom.setLocation(75,150);
+        rightOfTime.setLocation(155,75);
+
+        addLayer(upperRight);
+        addLayer(time);
+        addLayer(aboveTime);
+        addLayer(top);
+        addLayer(bottom);
+        addLayer(rightOfTime);
     }
 
     function onLoad(dc as Dc) as Void {
         // Initialize settings
-        _is24Hour = System.getDeviceSettings().is24Hour;
-        _fieldManager.set24Hour(_is24Hour);
-        
-        // Note: Field/Icon initialization deferred to first onUpdate()
-        // where we have proper drawing context dimensions
-
         // Force initial update request
         WatchUi.requestUpdate();
+
     }
 
     function onUnload() as Void {
     }
 
     function onUpdate(dc as Dc) as Void {
-        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
-        dc.clear();
-        
+        if (!_doneInitialClear) {
+            // clear
+            dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
+            dc.clear();
+            dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+            _doneInitialClear = true;
+
+        }
+
         var clockTime = System.getClockTime();
-        var width = dc.getWidth();
-        var height = dc.getHeight();
         
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        
-        // Draw all fields
-        _fieldManager.draw(dc, _isAwake, clockTime, width, height);
+        _regionManager.loadResourcesOnce();
+        _regionManager.refresh(
+            new RefreshContext(clockTime, _sleeping)
+        );
+        _regionManager.draw(
+            new DrawContext(clockTime, _sleeping)
+        );
     }
+        
 
     function onHide() as Void {
     }
 
     function onExitSleep() as Void {
-        _isAwake = true;
+        _sleeping = false;
         WatchUi.requestUpdate();
     }
 
     function onEnterSleep() as Void {
-        _isAwake = false;
+        _sleeping = true;
         // Request update to clear seconds immediately
         WatchUi.requestUpdate();
     }
 
     function onSettingsChanged() as Void {
-        _is24Hour = System.getDeviceSettings().is24Hour;
-        _fieldManager.set24Hour(_is24Hour);
     }
 
 }

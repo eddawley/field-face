@@ -1,7 +1,7 @@
 import Toybox.System;
 import Toybox.Lang;
 
-class RefreshContext {
+class DrawContext {
     public var clockTime as System.ClockTime;
     public var sleeping as Boolean;
     
@@ -10,4 +10,3 @@ class RefreshContext {
         self.sleeping = sleeping;
     }
 }
-    

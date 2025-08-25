@@ -2,23 +2,24 @@ import Toybox.Graphics;
 import Toybox.System;
 import Toybox.Lang;
 import Toybox.WatchUi;
+import Toybox.Time;
 
 class TimeField extends Field {
     private var _is24Hour as Boolean = false;
     
-    public function initialize(location as Number) {
-        Field.initialize(location, 1); // Updates every second
-        _font = Graphics.FONT_NUMBER_THAI_HOT;
+    public function initialize() {
+        Field.initialize();
+        font = Graphics.FONT_NUMBER_THAI_HOT;
     }
     
     public function set24Hour(is24Hour as Boolean) as Void {
         _is24Hour = is24Hour;
     }
     
-    protected function _refreshValue(context as RefreshContext) as Void {
-        var clockTime = context.getClockTime();
+    public function refresh(context as RefreshContext) as Time.Duration {
+        var clockTime = context.clockTime;
         if (_is24Hour) {
-            _lastValue = Lang.format("$1$:$2$", [
+            text = Lang.format("$1$:$2$", [
                 clockTime.hour.format("%02d"),
                 clockTime.min.format("%02d")
             ]);
@@ -29,24 +30,22 @@ class TimeField extends Field {
             } else if (hour > 12) {
                 hour = hour - 12;
             }
-            _lastValue = Lang.format("$1$:$2$", [
+            text = Lang.format("$1$:$2$", [
                 hour,
                 clockTime.min.format("%02d")
             ]);
         }
-    }
-    
-    public function draw(dc as Graphics.Dc, isAwake as Boolean) as Void {
-        dc.drawText(_x, _y, _font, _lastValue, Graphics.TEXT_JUSTIFY_CENTER);
+
+        return new Time.Duration(60 - clockTime.sec);
     }
     
     public function getTimeWidth(dc as Graphics.Dc) as Number {
-        return dc.getTextWidthInPixels(_lastValue, _font);
+        return dc.getTextWidthInPixels(text, font);
     }
     
-    public function loadIcon() as Void {
+    public function loadResources() as Void {
         try {
-            _font = WatchUi.loadResource(Rez.Fonts.LargeTimeFont);
+            font = WatchUi.loadResource(Rez.Fonts.LargeTimeFont);
         } catch(ex) {
             // Font loading failed, use default
         }

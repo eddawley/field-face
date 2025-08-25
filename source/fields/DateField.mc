@@ -5,26 +5,20 @@ import Toybox.Time;
 import Toybox.Time.Gregorian;
 
 class DateField extends Field {
-    public function initialize(location as Number) {
-        Field.initialize(location, 86400); // Daily updates
-        _font = Graphics.FONT_XTINY;
+    public function initialize() {
+        Field.initialize();
+        font = Graphics.FONT_XTINY;
     }
     
-    protected function _refreshValue(context as RefreshContext) as Void {
-        var clockTime = context.getClockTime();
+    public function refresh(context as RefreshContext) as Time.Duration {
         // Update at midnight or first run
-        if (_lastUpdateTime == 0 || (clockTime.hour == 0 && clockTime.min == 0)) {
-            _lastUpdateTime = context.getCurrentTime();
-            
-            var today = Gregorian.info(Time.now(), Time.FORMAT_MEDIUM);
-            var fullDayName = today.day_of_week;
-            var monthAbbrev = today.month.substring(0, 3);
-            _lastValue = Lang.format("$1$, $2$ $3$", [fullDayName, monthAbbrev, today.day]);
-        }
+        var today = Gregorian.info(Time.now(), Time.FORMAT_MEDIUM);
+        var fullDayName = today.day_of_week;
+        var monthAbbrev = today.month.substring(0, 3);
+        text = Lang.format("$1$, $2$ $3$", [fullDayName, monthAbbrev, today.day]);
+
+        // refresh midnight tomorrow
+        var secondsToday = (Gregorian.SECONDS_PER_HOUR * today.hour) + (Gregorian.SECONDS_PER_MINUTE * today.min) + today.sec;
+        return new Time.Duration(Gregorian.SECONDS_PER_DAY - secondsToday);
     }
-    
-    public function draw(dc as Graphics.Dc, isAwake as Boolean) as Void {
-        // DateField uses left justification
-        dc.drawText(_x, _y, _font, _lastValue, Graphics.TEXT_JUSTIFY_LEFT);
-    }
-}
+} 
