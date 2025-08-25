@@ -72,7 +72,11 @@ class Region{
             dc.drawText(iconWidth + gap, 0, _field.font, _field.text, Graphics.TEXT_JUSTIFY_LEFT);
         }
         else {
-            dc.drawText(0, 0, _field.font, _field.text, Graphics.TEXT_JUSTIFY_LEFT);
+            if (_field instanceof TimeField) {
+                dc.drawText(135, 0, _field.font, _field.text, Graphics.TEXT_JUSTIFY_RIGHT);
+            } else {
+                dc.drawText(0, 0, _field.font, _field.text, Graphics.TEXT_JUSTIFY_LEFT);
+            }
         }
 
         _lastDrawn = new Drawn();

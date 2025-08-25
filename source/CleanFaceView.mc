@@ -75,7 +75,7 @@ class CleanFaceView extends WatchUi.WatchFace {
         );
 
         upperRight.setLocation(117,20);
-        time.setLocation(10,60);
+        time.setLocation(20,60);
         aboveTime.setLocation(15,50);
         top.setLocation(60,10);
         bottom.setLocation(75,150);
