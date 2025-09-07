@@ -6,7 +6,7 @@ import Toybox.Lang;
 class CleanFaceView extends WatchUi.WatchFace {
     private var _sleeping = false;
     private var _regionManager as RegionManager;
-    private var _doneInitialClear as Boolean = false;
+    private var _forceClear as Boolean = true;
 
     function initialize() {
         WatchFace.initialize();
@@ -100,12 +100,12 @@ class CleanFaceView extends WatchUi.WatchFace {
     }
 
     function onUpdate(dc as Dc) as Void {
-        if (!_doneInitialClear) {
+        if (_forceClear) {
             // clear
             dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
             dc.clear();
             dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-            _doneInitialClear = true;
+            _forceClear = false;
 
         }
 
@@ -136,6 +136,7 @@ class CleanFaceView extends WatchUi.WatchFace {
     }
 
     function onShow() as Void {
+        _forceClear = true;
         _regionManager.forceNextDraw();
         WatchUi.requestUpdate();
     }
