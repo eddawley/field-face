@@ -2,7 +2,7 @@ import Toybox.Application;
 import Toybox.Lang;
 import Toybox.WatchUi;
 
-class CleanFaceApp extends Application.AppBase {
+class FieldFaceApp extends Application.AppBase {
 
     function initialize() {
         AppBase.initialize();
@@ -15,7 +15,7 @@ class CleanFaceApp extends Application.AppBase {
     }
 
     function getInitialView() {
-        return [ new CleanFaceView() ];
+        return [ new FieldFaceView() ];
     }
 
 }
